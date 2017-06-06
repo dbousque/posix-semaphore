@@ -4,6 +4,9 @@ const sem = new addon.Semaphore("salut00")
 //sem.close()
 sem.acquire()
 console.log('acquired')
+setTimeout(() => {
+	console.log('lol :)')
+}, 3000)
 setTimeout(() => {}, 5000000)
 
 process.on('SIGINT', () => {

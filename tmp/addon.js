@@ -1,10 +1,17 @@
 const addon = require('bindings')('addon')
 
 const sem = new addon.Semaphore("salut00")
+//sem.close()
+console.log('before acquire')
 sem.acquire()
 console.log('acquired')
-setTimeout(() => { sem.close() }, 5000)
+
+setTimeout(() => {}, 500000000)
 
 process.on('SIGINT', () => {
-  sem.close()
+  //sem.close()
+  //process.exit()
+  console.log('sigint')
+  sem.release()
+  sem.acquire()
 })

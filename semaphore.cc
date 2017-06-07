@@ -1,12 +1,10 @@
 #include "semaphore.h"
-#include <assert.h>
 
-napi_ref Semaphore::constructor;
+Nan::Persistent<v8::Function> Semaphore::constructor;
 
-Semaphore::Semaphore(napi_env env, char buf[], size_t buf_len) : env_(nullptr), wrapper_(nullptr)
+Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool silent, bool retry_on_eintr)
 {
-  napi_status status;
-  size_t      i;
+  size_t  i;
 
   i = 0;
   while (i < buf_len)
@@ -14,214 +12,167 @@ Semaphore::Semaphore(napi_env env, char buf[], size_t buf_len) : env_(nullptr), 
     this->sem_name[i] = buf[i];
     i++;
   }
-  this->semaphore = sem_open(sem_name, O_CREAT, 0644, 1);
+  this->semaphore = sem_open(this->sem_name, O_CREAT, 0644, 1);
   if(this->semaphore == SEM_FAILED)
   {
-    status = napi_throw_error(env, "could not create semaphore : sem_open failed");
-    assert(status == napi_ok);
+    this->closed = 1;
+    Nan::ThrowError("could not create semaphore : sem_open failed");
     return ;
   }
-  this->locked = 0;
-  this->closed = 0;
+  this->locked = false;
+  this->closed = false;
+  this->strict = strict;
+  this->debug = debug;
+  this->silent = silent;
+  this->retry_on_eintr = retry_on_eintr;
 }
 
 Semaphore::~Semaphore()
 {
-  napi_delete_reference(env_, wrapper_);
 }
 
-void Semaphore::Destructor(napi_env env, void* nativeObject, void* /*finalize_hint*/) {
-  reinterpret_cast<Semaphore*>(nativeObject)->~Semaphore();
-}
-
-#define DECLARE_NAPI_METHOD(name, func)                          \
-  { name, 0, func, 0, 0, 0, napi_default, 0 }
-
-void Semaphore::Init(napi_env env, napi_value exports) {
-  napi_status status;
-  napi_property_descriptor properties[] = {
-      DECLARE_NAPI_METHOD("acquire", Acquire),
-      DECLARE_NAPI_METHOD("release", Release),
-      DECLARE_NAPI_METHOD("close", Close),
-  };
-
-  napi_value cons;
-  status = napi_define_class(env, "Semaphore", New, nullptr, 3, properties, &cons);
-  assert(status == napi_ok);
-
-  status = napi_create_reference(env, cons, 1, &constructor);
-  assert(status == napi_ok);
-
-  status = napi_set_named_property(env, exports, "Semaphore", cons);
-  assert(status == napi_ok);
-}
-
-napi_value Semaphore::New(napi_env env, napi_callback_info info) {
-  napi_status status;
-
-  bool is_constructor;
-  status = napi_is_construct_call(env, info, &is_constructor);
-  assert(status == napi_ok);
-
-  if (is_constructor) {
-    // Invoked as constructor: `new Semaphore(...)`
-    size_t argc = 1;
-    napi_value args[1];
-    napi_value jsthis;
-    status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-    assert(status == napi_ok);
-
-    napi_valuetype valuetype;
-    status = napi_typeof(env, args[0], &valuetype);
-    assert(status == napi_ok);
-
-    if (valuetype != napi_string) {
-      status = napi_throw_type_error(env, "Semaphore() expects a string as argument");
-      assert(status == napi_ok);
-      return nullptr;
-    }
-    char buf[256];
-    size_t  res_len;
-    status = napi_get_value_string_utf8(env, args[0], buf, 256, &res_len);
-    assert(status == napi_ok);
-
-    if (res_len >= 255) {
-      status = napi_throw_error(env, "Semaphore() : argument must be less than 255 bytes long");
-      assert(status == napi_ok);
-      return nullptr;
-    }
-
-    Semaphore* obj = new Semaphore(env, buf, res_len);
-
-    obj->env_ = env;
-    status = napi_wrap(env,
-                       jsthis,
-                       reinterpret_cast<void*>(obj),
-                       Semaphore::Destructor,
-                       nullptr,  // finalize_hint
-                       &obj->wrapper_);
-    assert(status == napi_ok);
-
-    return jsthis;
-  } else {
-    // Invoked as plain function `Semaphore(...)`, turn into construct call.
-    size_t argc_ = 1;
-    napi_value args[1];
-    status = napi_get_cb_info(env, info, &argc_, args, nullptr, nullptr);
-    assert(status == napi_ok);
-
-    const size_t argc = 1;
-    napi_value argv[argc] = {args[0]};
-
-    napi_value cons;
-    status = napi_get_reference_value(env, constructor, &cons);
-    assert(status == napi_ok);
-
-    napi_value instance;
-    status = napi_new_instance(env, cons, argc, argv, &instance);
-    assert(status == napi_ok);
-
-    return instance;
-  }
-}
-
-napi_value Semaphore::Acquire(napi_env env, napi_callback_info info)
+void Semaphore::Init(v8::Local<v8::Object> exports)
 {
-  napi_status status;
-  napi_value  jsthis;
-  Semaphore   *obj;
+  Nan::HandleScope scope;
 
-  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok);
+  // Prepare constructor template
+  v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
+  tpl->SetClassName(Nan::New("Semaphore").ToLocalChecked());
+  tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
-  assert(status == napi_ok);
+  // Prototype
+  Nan::SetPrototypeMethod(tpl, "acquire", Acquire);
+  Nan::SetPrototypeMethod(tpl, "release", Release);
+  Nan::SetPrototypeMethod(tpl, "close", Close);
 
-  if (obj->closed)
+  constructor.Reset(tpl->GetFunction());
+  exports->Set(Nan::New("Semaphore").ToLocalChecked(), tpl->GetFunction());
+}
+
+void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
+{
+  bool    strict;
+  bool    debug;
+  bool    silent;
+  bool    retry_on_eintr;
+  char    *buf;
+
+  if (!info.IsConstructCall())
+    return Nan::ThrowError("Must call Semaphore() with new");
+  if (info.Length() != 5)
+    return Nan::ThrowError("Semaphore() expects 5 arguments");
+  if (!info[0]->IsString())
+    return Nan::ThrowError("Semaphore() expects a string as first argument");
+  if (!info[1]->IsBoolean())
+    return Nan::ThrowError("Semaphore() expects a boolean as second argument");
+  if (!info[2]->IsBoolean())
+    return Nan::ThrowError("Semaphore() expects a boolean as third argument");
+  if (!info[3]->IsBoolean())
+    return Nan::ThrowError("Semaphore() expects a boolean as fourth argument");
+  if (!info[4]->IsBoolean())
+    return Nan::ThrowError("Semaphore() expects a boolean as fifth argument");
+  strict = info[1]->BooleanValue();
+  debug = info[2]->BooleanValue();
+  silent = info[3]->BooleanValue();
+  retry_on_eintr = info[4]->BooleanValue();
+  v8::String::Utf8Value str(info[0]->ToString());
+  if (str.length() >= 255 || str.length() <= 0)
+    return Nan::ThrowError("Semaphore() : first argument's length must be < 255 && > 0");
+  buf = (char*)(*str);
+  Semaphore* obj = new Semaphore(buf, str.length(), strict, debug, silent, retry_on_eintr);
+  obj->Wrap(info.This());
+  info.GetReturnValue().Set(info.This());
+}
+
+void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
+{
+  int        r;
+  Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
+
+  if (!obj->strict && (obj->closed || obj->locked))
   {
-    status = napi_throw_error(env, "trying to do operation over semaphore, but already closed");
-    assert(status == napi_ok);
-    return nullptr;
+    if (obj->debug)
+      printf("[posix-semaphore] 'acquire' called when semaphore was already acquired or closed, but strict mode deactivated, so not failing\n");
+    return ;
   }
-
+  if (obj->closed)
+    return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (obj->locked)
+    return Nan::ThrowError("trying to acquire semaphore, but already acquired");
+  if (obj->debug)
+    printf("[posix-semaphore] Before sem_wait\n");
+  while ((r = sem_wait(obj->semaphore)) == -1 && errno == EINTR && obj->retry_on_eintr)
   {
-    printf("trying to acquire semaphore, but already acquired\n");
-    status = napi_throw_error(env, "trying to acquire semaphore, but already acquired");
-    assert(status == napi_ok);
-    return nullptr;
+    if (obj->debug)
+      printf("[posix-semaphore] Got EINTR while calling sem_wait, retrying...\n");
   }
-  if (sem_wait(obj->semaphore) == -1)
+  // error and not EINTR
+  if (r == -1)
   {
-    status = napi_throw_error(env, "could not acquire semaphore, sem_wait failed");
-    assert(status == napi_ok);
-    return nullptr;
+    if (obj->debug || !obj->silent)
+    {
+      if (errno == EINTR)
+      {
+        printf("[posix-semaphore] Got EINTR while calling sem_wait, expected on SIGINT (CTRL-C). Not retrying because the 'retryOnEintr' option is false\n");
+      }
+      else
+      {
+        printf("[posix-semaphore] sem_wait failed, printing errno message ('man sem_wait' for more details on possible errors) : \n");
+        perror("[posix-semaphore] ");
+      }
+    }
+    if (errno != EINTR)
+      Nan::ThrowError("could not acquire semaphore, sem_wait failed");
+    return ;
   }
-  obj->locked = 1;
-  return nullptr;
+  obj->locked = true;
+  if (obj->debug)
+    printf("[posix-semaphore] After sem_wait\n");
 }
 
-napi_value Semaphore::Release(napi_env env, napi_callback_info info)
+void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
-  napi_status status;
-  napi_value  jsthis;
-  Semaphore   *obj;
-
-  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok);
-
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
-  assert(status == napi_ok);
-
+  Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
+  
+  if (!obj->strict && (obj->closed || !obj->locked))
+  {
+    if (obj->debug)
+      printf("[posix-semaphore] 'release' called when semaphore was already released or closed, but strict mode deactivated, so not failing\n");
+    return ;
+  }
   if (obj->closed)
-  {
-    status = napi_throw_error(env, "trying to do operation over semaphore, but already closed");
-    assert(status == napi_ok);
-    return nullptr;
-  }
-
+    return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (!obj->locked)
-  {
-    printf("trying to release semaphore, but already released\n");
-    status = napi_throw_error(env, "trying to release semaphore, but already released");
-    assert(status == napi_ok);
-    return nullptr;
-  }
+    return Nan::ThrowError("trying to release semaphore, but already released");
+  if (obj->debug)
+    printf("[posix-semaphore] Before sem_post\n");
   if (sem_post(obj->semaphore) == -1)
   {
-    status = napi_throw_error(env, "could not release semaphore, sem_post failed");
-    assert(status == napi_ok);
-    return nullptr;
+    if (obj->debug || !obj->silent)
+    {
+      printf("[posix-semaphore] sem_post failed, printing errno message ('man sem_post' for more details on possible errors) : \n");
+      perror("[posix-semaphore] ");
+    }
+    return Nan::ThrowError("could not release semaphore, sem_post failed");
   }
-  obj->locked = 0;
-  return nullptr;
+  obj->locked = false;
+  if (obj->debug)
+    printf("[posix-semaphore] After sem_post\n");
 }
 
-napi_value Semaphore::Close(napi_env env, napi_callback_info info)
+void Semaphore::Close(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
-  napi_status status;
-  napi_value  jsthis;
-  Semaphore   *obj;
+  Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
 
-  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
-  assert(status == napi_ok);
-
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
-  assert(status == napi_ok);
-
+  if (!obj->strict && obj->closed)
+  {
+    if (obj->debug)
+      printf("[posix-semaphore] 'close' called when semaphore was already closed, but strict mode deactivated, so not failing\n");
+    return ;
+  }
   if (obj->closed)
-  {
-    status = napi_throw_error(env, "trying to do operation over semaphore, but already closed");
-    assert(status == napi_ok);
-    return nullptr;
-  }
-  if (obj->locked)
-  {
-    Semaphore::Release(env, info);
-  }
-
+    return Nan::ThrowError("trying to close semaphore, but already closed");
+  obj->closed = true;
   sem_close(obj->semaphore);
   sem_unlink(obj->sem_name);
-  obj->closed = 1;
-  return nullptr;
 }

@@ -1,11 +1,12 @@
 {
-  "name": "semaphore",
+  "name": "posix-semaphore",
   "version": "0.0.1",
-  "description": "Blocking semaphore implementation",
+  "description": "Blocking POSIX semaphores for Node.js",
   "main": "addon.js",
   "private": true,
   "gypfile": true,
   "dependencies": {
-    "bindings": "~1.2.1"
+    "bindings": "~1.2.1",
+    "nan": "^2.0.0"
   }
 }

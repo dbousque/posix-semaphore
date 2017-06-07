@@ -1,32 +1,33 @@
-#ifndef TEST_ADDONS_NAPI_6_OBJECT_WRAP_SEMAPHORE_H_
-#define TEST_ADDONS_NAPI_6_OBJECT_WRAP_SEMAPHORE_H_
+#ifndef SEMAPHORE_H
+#define SEMAPHORE_H
 
-#include <node_api.h>
+#include <nan.h>
 #include <fcntl.h>
 #include <semaphore.h>
 #include <stdio.h>
 
-class Semaphore {
+class Semaphore : public Nan::ObjectWrap {
  public:
-  static void Init(napi_env env, napi_value exports);
-  static void Destructor(napi_env env, void* nativeObject, void* finalize_hint);
+  static void Init(v8::Local<v8::Object> exports);
 
  private:
-  explicit Semaphore(napi_env env, char buf[], size_t buf_len);
+  explicit Semaphore(char *buf, size_t buf_len, bool strict, bool debug, bool silent, bool retry_on_eintr);
   ~Semaphore();
 
-  static napi_value New(napi_env env, napi_callback_info info);
-  static napi_value Acquire(napi_env env, napi_callback_info info);
-  static napi_value Release(napi_env env, napi_callback_info info);
-  static napi_value Close(napi_env env, napi_callback_info info);
-  static napi_ref constructor;
-  napi_env env_;
-  napi_ref wrapper_;
-
-  char  sem_name[256];
-  sem_t *semaphore;
-  char  locked;
-  char  closed;
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Release(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Close(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static Nan::Persistent<v8::Function> constructor;
+  
+  sem_t	*semaphore;
+  char	sem_name[256];
+  bool	locked;
+  bool	closed;
+  bool  strict;
+  bool  debug;
+  bool  silent;
+  bool  retry_on_eintr;
 };
 
-#endif  // TEST_ADDONS_NAPI_6_OBJECT_WRAP_SEMAPHORE_H_
+#endif

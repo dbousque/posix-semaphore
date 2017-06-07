@@ -1,6 +1,7 @@
 
 
 const childProcess = require('child_process')
+const processes = require('./test_processes')
 
 function launchProcess (options, cb) {
   var stdout = ''
@@ -23,7 +24,7 @@ function launchProcess (options, cb) {
       options,
       stdout,
       stderr,
-      exitCode: 0,
+      exitCode: code,
       lines: stdout.split('\n').filter(l => l.length > 0),
       hasTimedout: hasTimedout,
     })
@@ -57,24 +58,6 @@ function checkValidOutput (output) {
   })
 }
 
-function noError (output) {
-  return output.stderr.length === 0
-}
-
-function hasExitCode (nb) {
-  const _hasExitCode = ((output) => {
-    return output.exitCode === nb
-  })
-  return _hasExitCode
-}
-
-function lastLineIs (str) {
-  const _lastLineIs = ((output) => {
-    return output.lines[output.lines.length - 1] === str
-  })
-  return _lastLineIs
-}
-
 function launchProcesses (processes, cb) {
   const _launchProcesses = (acc, proc) => {
     if (proc.length === 0) {
@@ -89,14 +72,6 @@ function launchProcesses (processes, cb) {
   }
   _launchProcesses([], processes)
 }
-
-const processes = [
-  {
-    filename: 'tests/test1.js',
-    validators: [noError, hasExitCode(0), lastLineIs('[posix-semaphore] done.')],
-    timeout: 10 * 1000,
-  },
-]
 
 launchProcesses(processes, (outputs) => {
   outputs.forEach(checkValidOutput)

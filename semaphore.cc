@@ -91,17 +91,17 @@ void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
   int        r;
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
 
-  if (!obj->strict && (obj->closed || obj->locked))
+  /*if (!obj->strict && (obj->closed || obj->locked))
   {
     if (obj->debug)
       printf("[posix-semaphore] 'acquire' called when semaphore was already acquired or closed, but strict mode deactivated, so not failing\n");
     return ;
-  }
-  if (obj->closed)
+  }*/
+  if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
-  if (obj->locked)
+  if (obj->strict && obj->locked)
     return Nan::ThrowError("trying to acquire semaphore, but already acquired");
-  if (obj->debug)
+  if (obj->strict && obj->debug)
     printf("[posix-semaphore] Before sem_wait\n");
   while ((r = sem_wait(obj->semaphore)) == -1 && errno == EINTR && obj->retry_on_eintr)
   {
@@ -136,15 +136,15 @@ void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
   
-  if (!obj->strict && (obj->closed || !obj->locked))
+  /*if (!obj->strict && (obj->closed || !obj->locked))
   {
     if (obj->debug)
       printf("[posix-semaphore] 'release' called when semaphore was already released or closed, but strict mode deactivated, so not failing\n");
     return ;
-  }
-  if (obj->closed)
+  }*/
+  if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
-  if (!obj->locked)
+  if (obj->strict && !obj->locked)
     return Nan::ThrowError("trying to release semaphore, but already released");
   if (obj->debug)
     printf("[posix-semaphore] Before sem_post\n");
@@ -166,13 +166,13 @@ void Semaphore::Close(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
 
-  if (!obj->strict && obj->closed)
+  /*if (!obj->strict && obj->closed)
   {
     if (obj->debug)
       printf("[posix-semaphore] 'close' called when semaphore was already closed, but strict mode deactivated, so not failing\n");
     return ;
-  }
-  if (obj->closed)
+  }*/
+  if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to close semaphore, but already closed");
   if (obj->debug)
     printf("[posix-semaphore] Closing semaphore\n");

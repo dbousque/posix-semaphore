@@ -11,7 +11,7 @@ function launchProcess (options, cb) {
 
   const proc = childProcess.spawn('node', [options.filename])
 
-  const exitProc = (code, hasTimedout) => {
+  const exitProc = (code, didTimedout) => {
     if (returned) {
       return
     }
@@ -19,14 +19,14 @@ function launchProcess (options, cb) {
     if (timeout) {
       clearTimeout(timeout)
     }
-    proc.kill()
+    proc.kill('SIGINT')
     cb({
       options,
       stdout,
       stderr,
       exitCode: code,
       lines: stdout.split('\n').filter(l => l.length > 0),
-      hasTimedout: hasTimedout,
+      didTimedout,
     })
   }
 
@@ -47,7 +47,7 @@ function checkValidOutput (output) {
 
     throw new Error('test failed')
   }
-  if (output.hasTimedout) {
+  if (output.didTimedout && output.options.canTimeout !== true) {
     return testFailed(output, 'Timed out')
   }
   const options = output.options

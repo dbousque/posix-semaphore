@@ -5,7 +5,10 @@
   "main": "addon.js",
   "gypfile": true,
   "scripts": {
-    "test": "node tests/*.js"
+    "test": "node tests/launch_tests.js"
+  },
+  "devDependencies": {
+    "child_process": "^1.0.2"
   },
   "dependencies": {
     "bindings": "~1.2.1",

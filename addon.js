@@ -1,6 +1,7 @@
 
 
 const SemaphoreCPP = require('bindings')('addon').Semaphore
+const semaphoreNames = {}
 
 function parseOptions (options) {
   if (typeof options !== 'object') {
@@ -32,11 +33,11 @@ function registerExitHandler (options, onExit) {
   })
   process.on('exit', onExit)
   process.on('uncaughtException', (err) => {
+    console.log(err.stack)
     if (!options.silent || options.debug) {
-      console.log('[posix-semaphore] Catched uncaughtException, closing semaphore if necessary and printing exception...')
+      console.log('[posix-semaphore] Catched uncaughtException, closing semaphore if necessary...')
     }
     onExit()
-    console.log(err.stack)
     process.exit()
   })
 }
@@ -50,6 +51,10 @@ function Semaphore(name, options) {
     throw new Error('Semaphore() expects a string as first argument')
   }
 
+  if (semaphoreNames[name] === 1) {
+    throw new Error(`Semaphore "${name}" already open in this process`)
+  }
+
   this.acquire = () => {
     this.sem.acquire()
   }
@@ -60,9 +65,11 @@ function Semaphore(name, options) {
 
   this.close = () => {
     this.sem.close()
+    delete semaphoreNames[name]
     this.closed = true
   }
 
+  semaphoreNames[name] = 1
   this.name = name
   options = parseOptions(options)
   this.sem = new SemaphoreCPP(name, options.strict, options.debug, options.silent, options.retryOnEintr)

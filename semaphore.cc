@@ -19,6 +19,8 @@ Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool s
     Nan::ThrowError("could not create semaphore : sem_open failed");
     return ;
   }
+  if (debug)
+    printf("[posix-semaphore] Opened semaphore\n");
   this->locked = false;
   this->closed = false;
   this->strict = strict;
@@ -172,6 +174,8 @@ void Semaphore::Close(const Nan::FunctionCallbackInfo<v8::Value>& info)
   }
   if (obj->closed)
     return Nan::ThrowError("trying to close semaphore, but already closed");
+  if (obj->debug)
+    printf("[posix-semaphore] Closing semaphore\n");
   obj->closed = true;
   sem_close(obj->semaphore);
   sem_unlink(obj->sem_name);

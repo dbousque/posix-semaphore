@@ -3,10 +3,10 @@
 const childProcess = require('child_process')
 
 function launchProcess (options, cb) {
-  let stdout = ''
-  let stderr = ''
-  let returned = false
-  let timeout = null
+  var stdout = ''
+  var stderr = ''
+  var returned = false
+  var timeout = null
 
   const proc = childProcess.spawn('node', [options.filename])
 

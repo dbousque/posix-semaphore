@@ -39,7 +39,7 @@ function launchProcess (options, cb) {
 
 function checkValidOutput (output) {
   const testFailed = (output, msg) => {
-    console.log(output, { depth: null })
+    console.log(output)
     console.log('')
     console.log(`\x1b[31m\x1b[1m[test failed]\x1b[0m [${output.options.filename}] ${msg}`)
     console.log('')

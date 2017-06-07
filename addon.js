@@ -29,7 +29,7 @@ function parseOptions (options) {
 function registerExitHandler (options, onExit) {
   process.on('SIGINT', () => {
     onExit()
-    process.exit()
+    process.exit(0)
   })
   process.on('exit', onExit)
   process.on('uncaughtException', (err) => {
@@ -38,7 +38,7 @@ function registerExitHandler (options, onExit) {
       console.log('[posix-semaphore] Catched uncaughtException, closing semaphore if necessary...')
     }
     onExit()
-    process.exit()
+    process.exit(1)
   })
 }
 

@@ -2,7 +2,8 @@
 
 const Semaphore = require('../addon')
 
-const sem = new Semaphore('salut00', { strict: true, debug: false })
+const sem = Semaphore('salut00', { strict: true, debug: true })
 sem.acquire()
-sem.release()
-//sem.close()
+const sem2 = Semaphore('salut00', { strict: true, debug: true })
+console.log('before sem2 acquire')
+sem2.acquire()

@@ -30,6 +30,22 @@ function lastLineIs (str) {
   return _lastLineIs
 }
 
+function lastLinesAre (strs) {
+  const _lastLinesAre = ((output) => {
+    if (strs.length > output.lines.length) {
+      return false
+    }
+    const diff = output.lines.length - strs.length
+    for (var i = output.lines.length - strs.length; i < output.lines.length; i++) {
+      if (strs[i - diff] !== output.lines[i]) {
+        return false
+      }
+    }
+    return true
+  })
+  return _lastLinesAre
+}
+
 const processes = [
   {
     filename: 'tests/test1.js',
@@ -46,6 +62,26 @@ const processes = [
     validators: [noStderr, noStdout, didTimedout, hasExitCode(0)],
     timeout: 2 * 1000,
     canTimeout: true,
+  },
+  {
+    filename: 'tests/test4.js',
+    validators: [noStderr, noStdout, hasExitCode(0)],
+    timeout: 10 * 1000,
+  },
+  {
+    filename: 'tests/test5.js',
+    validators: [noStderr, hasExitCode(0), lastLineIs('[posix-semaphore] done.')],
+    timeout: 10 * 1000,
+  },
+  {
+    filename: 'tests/test6.js',
+    validators: [noStderr, hasExitCode(0), lastLineIs('[posix-semaphore] done.')],
+    timeout: 10 * 1000,
+  },
+  {
+    filename: 'tests/test7.js',
+    validators: [noStderr, hasExitCode(0), lastLinesAre(['first', 'second', 'third'])],
+    timeout: 10 * 1000,
   },
 ]
 

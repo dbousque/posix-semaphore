@@ -1,7 +1,7 @@
 
 
 const cluster = require('cluster')
-const Semaphore = require('../addon')
+const Semaphore = require('../srcs/addon')
 const shm = require('shm-typed-array')
 
 function parentProcess () {

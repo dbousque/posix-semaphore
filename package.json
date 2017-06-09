@@ -4,7 +4,7 @@
   "description": "Blocking POSIX semaphores for Node.js",
   "repository": "https://github.com/dbousque/posix-semaphore",
   "license": "MIT",
-  "main": "addon.js",
+  "main": "srcs/addon.js",
   "gypfile": true,
   "scripts": {
     "test": "node tests/launch_tests.js"

@@ -1,6 +1,6 @@
 
 
-const Semaphore = require('../addon')
+const Semaphore = require('../srcs/addon')
 
 const sem = Semaphore('salut00', { debug: true })
 sem.acquire()

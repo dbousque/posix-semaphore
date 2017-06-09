@@ -30,9 +30,9 @@ const shm = require('shm-typed-array')
 
 function parentProcess () {
   const semParent = new Semaphore('mySemaphore', { silent: true })
+  const bufParent = shm.create(4096)
   // we get the lock
   semParent.acquire()
-  const bufParent = shm.create(4096)
 
   // we create the child process
   const child = cluster.fork({ SHM_KEY: bufParent.key })

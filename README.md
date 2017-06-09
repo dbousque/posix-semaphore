@@ -81,7 +81,7 @@ Opens a new or an already existing semaphore with `sem_open`. Fails with an erro
   - `strict` : If set to false, `acquire`, `release` and `close` won't fail if the semaphore is already acquired/released/closed. Default : true
   - `closeOnExit` : If true, the semaphore will be closed on process exit (uncaughtException, SIGINT, normal exit). Default : true 
   - `debug` : Prints useful information. Default : false
-  - `silent` : Some information is printed with `closeOnExit`=true and when native calls fait. Allows you to disable that behavior. Default : false
+  - `silent` : Some information is printed with `closeOnExit`=true and when native calls fail. Allows you to disable that behavior. Default : false
   - `retryOnEintr` : If `sem_wait` fails with `EINTR` (usually it's due to a SIGINT signal being fired on CTRL-C), try to acquire the lock again. Default : false
 
 #### `sem.acquire()`

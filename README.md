@@ -3,21 +3,21 @@
 # posix-semaphore
 Blocking POSIX semaphores for Node.js
 
-## Installation
+### Installation
 `npm install posix-semaphore`
 
-## Example
+### Example
 ```javascript
-const sem = new Semaphore("mySemaphore")
+const Semaphore = require('posix-semaphore')
 
+const sem = new Semaphore('mySemaphore')
 sem.acquire()
-// here, we acquired the lock
 
 /* my code using shared ressources 👌 */
 
 sem.release()
-// other processes are free to use the ressources
+// other processes are now free to use the ressources
 
-// we are done with the semaphore
+// remove the semaphore from the system
 sem.close()
 ```

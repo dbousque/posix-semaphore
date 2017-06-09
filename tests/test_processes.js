@@ -1,5 +1,12 @@
 
 
+function or (f1, f2) {
+  const _or = ((output) => {
+    return f1(output) || f2(output)
+  })
+  return _or
+}
+
 function noStderr (output) {
   return output.stderr.length === 0
 }
@@ -46,6 +53,13 @@ function lastLinesAre (strs) {
   return _lastLinesAre
 }
 
+function stderrIs (str) {
+  const _stderrIs = ((output) => {
+    return output.stderr === str
+  })
+  return _stderrIs
+}
+
 const processes = [
   {
     filename: 'tests/test1.js',
@@ -85,7 +99,7 @@ const processes = [
   },
   {
     filename: 'tests/test8.js',
-    validators: [noStderr, hasExitCode(0), lastLinesAre(['hi there :)', 'shm segments destroyed: 1'])],
+    validators: [or(noStderr, stderrIs('[ctrl-C]\n')), hasExitCode(0), lastLinesAre(['hi there :)', 'shm segments destroyed: 1'])],
     timeout: 10 * 1000,
   },
 ]

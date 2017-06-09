@@ -83,6 +83,11 @@ const processes = [
     validators: [noStderr, hasExitCode(0), lastLinesAre(['first', 'second', 'third'])],
     timeout: 10 * 1000,
   },
+  {
+    filename: 'tests/test8.js',
+    validators: [noStderr, hasExitCode(0), lastLinesAre(['hi there :)', 'shm segments destroyed: 1'])],
+    timeout: 10 * 1000,
+  },
 ]
 
 module.exports = processes

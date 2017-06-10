@@ -77,7 +77,7 @@ $
 Opens a new or an already existing semaphore with `sem_open`. Fails with an error if the semaphore could not be opened.
 - `semName` : name of the semaphore
 - `options` :
-  - `strict` : If set to false, `acquire`, `release` and `close` won't fail if the semaphore is already acquired/released/closed. Default : true
+  - `strict` : If set to false, `acquire`, `release` and `close` won't fail if the semaphore is already acquired/released/closed in the current process. Default : true
   - `closeOnExit` : If true, the semaphore will be closed on process exit (uncaughtException, SIGINT, normal exit). Default : true 
   - `debug` : Prints useful information. Default : false
   - `silent` : Some information is printed with `closeOnExit`=true and when native calls fail. Allows you to disable that behavior. Default : false

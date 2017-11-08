@@ -12,6 +12,7 @@ Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool s
     this->sem_name[i] = buf[i];
     i++;
   }
+  this->sem_name[buf_len] = 0;
   this->semaphore = sem_open(this->sem_name, O_CREAT, 0644, 1);
   if(this->semaphore == SEM_FAILED)
   {

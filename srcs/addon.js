@@ -74,7 +74,7 @@ function Semaphore(name, options) {
   semaphoreNames[name] = 1
   this.name = name
   options = parseOptions(options)
-  this.sem = new SemaphoreCPP(name, options.strict, options.debug, options.silent, options.retryOnEintr)
+  this.sem = new SemaphoreCPP(name, options.strict, options.debug, options.silent, options.retryOnEintr, options.value)
   if (options.closeOnExit === undefined || options.closeOnExit) {
     const onExit = () => {
       if (this.closed !== true) {

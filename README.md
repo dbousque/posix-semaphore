@@ -82,6 +82,7 @@ Opens a new or an already existing semaphore with `sem_open`. Fails with an erro
   - `debug` : Prints useful information. Default : false
   - `silent` : Some information is printed with `closeOnExit`=true and when native calls fail. Allows you to disable that behavior. Default : false
   - `retryOnEintr` : If `sem_wait` fails with `EINTR` (usually it's due to a SIGINT signal being fired on CTRL-C), try to acquire the lock again. Default : false
+  - `value` : Initial value of semaphore. Default : 1
 
 #### `sem.acquire()`
 

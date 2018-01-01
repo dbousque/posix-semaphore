@@ -2,7 +2,7 @@
 
 Nan::Persistent<v8::Function> Semaphore::constructor;
 
-Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool silent, bool retry_on_eintr)
+Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool silent, bool retry_on_eintr, unsigned int value /*= 1*/)
 {
   size_t  i;
 
@@ -13,15 +13,18 @@ Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool s
     i++;
   }
   this->sem_name[buf_len] = 0;
-  this->semaphore = sem_open(this->sem_name, O_CREAT, 0644, 1);
+  this->semaphore = sem_open(this->sem_name, O_CREAT, 0644, value);
   if(this->semaphore == SEM_FAILED)
   {
     this->closed = 1;
     Nan::ThrowError("could not create semaphore : sem_open failed");
     return ;
   }
-  if (debug)
-    printf("[posix-semaphore] Opened semaphore\n");
+  if (debug) {
+    int sval;
+    if (sem_getvalue(this->semaphore, &sval)) sval = -1;
+    printf("[posix-semaphore] Opened semaphore (initial value %u, current value %d)\n", value, sval);
+  }
   this->locked = false;
   this->closed = false;
   this->strict = strict;
@@ -59,11 +62,12 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
   bool    silent;
   bool    retry_on_eintr;
   char    *buf;
+  unsigned int     value;
 
   if (!info.IsConstructCall())
     return Nan::ThrowError("Must call Semaphore() with new");
-  if (info.Length() != 5)
-    return Nan::ThrowError("Semaphore() expects 5 arguments");
+  if ((info.Length() < 5) || (info.Length() > 6))
+    return Nan::ThrowError("Semaphore() expects 5 or 6 arguments");
   if (!info[0]->IsString())
     return Nan::ThrowError("Semaphore() expects a string as first argument");
   if (!info[1]->IsBoolean())
@@ -74,15 +78,18 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return Nan::ThrowError("Semaphore() expects a boolean as fourth argument");
   if (!info[4]->IsBoolean())
     return Nan::ThrowError("Semaphore() expects a boolean as fifth argument");
+  if (!info[5]->IsUndefined() && !info[5]->IsUint32())
+    return Nan::ThrowError("Semaphore() expects an integer as sixth argument");
   strict = info[1]->BooleanValue();
   debug = info[2]->BooleanValue();
   silent = info[3]->BooleanValue();
   retry_on_eintr = info[4]->BooleanValue();
+  value = !info[5]->IsUndefined()? info[5]->IntegerValue(): 1;
   v8::String::Utf8Value str(info[0]->ToString());
   if (str.length() >= 255 || str.length() <= 0)
     return Nan::ThrowError("Semaphore() : first argument's length must be < 255 && > 0");
   buf = (char*)(*str);
-  Semaphore* obj = new Semaphore(buf, str.length(), strict, debug, silent, retry_on_eintr);
+  Semaphore* obj = new Semaphore(buf, str.length(), strict, debug, silent, retry_on_eintr, value);
   obj->Wrap(info.This());
   info.GetReturnValue().Set(info.This());
 }
@@ -102,8 +109,11 @@ void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (obj->strict && obj->locked)
     return Nan::ThrowError("trying to acquire semaphore, but already acquired");
-  if (obj->strict && obj->debug)
-    printf("[posix-semaphore] Before sem_wait\n");
+  if (obj->strict && obj->debug) {
+    int sval;
+    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
+    printf("[posix-semaphore] Before sem_wait, value = %d\n", sval);
+  }
   while ((r = sem_wait(obj->semaphore)) == -1 && errno == EINTR && obj->retry_on_eintr)
   {
     if (obj->debug)
@@ -129,8 +139,11 @@ void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return ;
   }
   obj->locked = true;
-  if (obj->debug)
-    printf("[posix-semaphore] After sem_wait\n");
+  if (obj->debug) {
+    int sval;
+    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
+    printf("[posix-semaphore] After sem_wait, value = %d\n", sval);
+  }
 }
 
 void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
@@ -147,8 +160,11 @@ void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (obj->strict && !obj->locked)
     return Nan::ThrowError("trying to release semaphore, but already released");
-  if (obj->debug)
-    printf("[posix-semaphore] Before sem_post\n");
+  if (obj->debug) {
+    int sval;
+    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
+    printf("[posix-semaphore] Before sem_post, value = %d\n", sval);
+  }
   if (sem_post(obj->semaphore) == -1)
   {
     if (obj->debug || !obj->silent)
@@ -159,8 +175,11 @@ void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return Nan::ThrowError("could not release semaphore, sem_post failed");
   }
   obj->locked = false;
-  if (obj->debug)
-    printf("[posix-semaphore] After sem_post\n");
+  if (obj->debug) {
+    int sval;
+    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
+    printf("[posix-semaphore] After sem_post, value = %d\n", sval);
+  }
 }
 
 void Semaphore::Close(const Nan::FunctionCallbackInfo<v8::Value>& info)

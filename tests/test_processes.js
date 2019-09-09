@@ -102,6 +102,11 @@ const processes = [
     validators: [or(noStderr, stderrIs('[ctrl-C]\n')), hasExitCode(0), lastLinesAre(['hi there :)', 'shm segments destroyed: 1'])],
     timeout: 10 * 1000,
   },
+  {
+    filename: 'tests/test9.js',
+    validators: [noStderr, noStdout, hasExitCode(0)],
+    timeout: 10 * 1000,
+  },
 ]
 
 module.exports = processes

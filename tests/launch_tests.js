@@ -76,4 +76,5 @@ function launchProcesses (processes, cb) {
 launchProcesses(processes, (outputs) => {
   outputs.forEach(checkValidOutput)
   console.log('\x1b[32m\x1b[1m[all tests successful]\x1b[0m')
+  process.exit(0)
 })

@@ -82,10 +82,12 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
   value = !info[5]->IsUndefined()? info[5]->IntegerValue(context).FromJust(): 1;
   v8::String::Utf8Value v8str(isolate, info[0]);
   std::string str(*v8str);
-  strcpy(buf, str.c_str());
 
   size_t str_len;
   str_len = str.length();
+  strncpy(buf, str.c_str(), str_len);
+  buf[str_len] = '\0';
+
   if (str_len >= SEMSIZE - 1 || str_len <= 0)
     return Nan::ThrowError("Semaphore() : first argument's length must be < 255 && > 0");
 

@@ -1,5 +1,6 @@
 #ifndef SEMAPHORE_H
 #define SEMAPHORE_H
+#define SEMSIZE 256
 
 #include <nan.h>
 #include <fcntl.h>
@@ -19,9 +20,9 @@ class Semaphore : public Nan::ObjectWrap {
   static void Release(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void Close(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static Nan::Persistent<v8::Function> constructor;
-  
+
   sem_t	*semaphore;
-  char	sem_name[256];
+  char	sem_name[SEMSIZE];
   bool	locked;
   bool	closed;
   bool  strict;

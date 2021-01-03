@@ -86,8 +86,12 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
 
   size_t str_len;
   str_len = str.length();
-  if (str_len >= SEMSIZE - 1 || str_len <= 0)
-    return Nan::ThrowError("Semaphore() : first argument's length must be < 255 && > 0");
+  if (str_len >= SEMSIZE || str_len <= 0)
+  {
+    char msg[100];
+    sprintf(msg, "Semaphore(): first argument's length must be < %i && > 0", SEMSIZE);
+    return Nan::ThrowError(msg);
+  }
 
   Semaphore* obj = new Semaphore(buf, str_len, strict, debug, silent, retry_on_eintr, value);
   obj->Wrap(info.This());

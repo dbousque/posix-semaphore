@@ -1,29 +1,17 @@
 #include "semaphore.h"
+#include "typeinfo"
 
 Nan::Persistent<v8::Function> Semaphore::constructor;
 
 Semaphore::Semaphore(char buf[], size_t buf_len, bool strict, bool debug, bool silent, bool retry_on_eintr, unsigned int value /*= 1*/)
 {
-  size_t  i;
-
-  i = 0;
-  while (i < buf_len)
-  {
-    this->sem_name[i] = buf[i];
-    i++;
-  }
-  this->sem_name[buf_len] = 0;
+  strcpy(this->sem_name, buf);
   this->semaphore = sem_open(this->sem_name, O_CREAT, 0644, value);
-  if(this->semaphore == SEM_FAILED)
+  if (this->semaphore == SEM_FAILED)
   {
     this->closed = 1;
-    Nan::ThrowError("could not create semaphore : sem_open failed");
+    Nan::ThrowError("Could not create semaphore: sem_open failed");
     return ;
-  }
-  if (debug) {
-    int sval;
-    if (sem_getvalue(this->semaphore, &sval)) sval = -1;
-    printf("[posix-semaphore] Opened semaphore (initial value %u, current value %d)\n", value, sval);
   }
   this->locked = false;
   this->closed = false;
@@ -39,6 +27,7 @@ Semaphore::~Semaphore()
 
 void Semaphore::Init(v8::Local<v8::Object> exports)
 {
+  v8::Local<v8::Context> context = exports->CreationContext();
   Nan::HandleScope scope;
 
   // Prepare constructor template
@@ -51,18 +40,24 @@ void Semaphore::Init(v8::Local<v8::Object> exports)
   Nan::SetPrototypeMethod(tpl, "release", Release);
   Nan::SetPrototypeMethod(tpl, "close", Close);
 
-  constructor.Reset(tpl->GetFunction());
-  exports->Set(Nan::New("Semaphore").ToLocalChecked(), tpl->GetFunction());
+  constructor.Reset(tpl->GetFunction(context).ToLocalChecked());
+  exports->Set(
+    context,
+    Nan::New("Semaphore").ToLocalChecked(),
+    tpl->GetFunction(context).ToLocalChecked()
+  );
 }
 
 void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
-  bool    strict;
-  bool    debug;
-  bool    silent;
-  bool    retry_on_eintr;
-  char    *buf;
-  unsigned int     value;
+  v8::Isolate* isolate = info.GetIsolate();
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  bool strict;
+  bool debug;
+  bool silent;
+  bool retry_on_eintr;
+  char buf[SEMSIZE];
+  unsigned int value;
 
   if (!info.IsConstructCall())
     return Nan::ThrowError("Must call Semaphore() with new");
@@ -80,40 +75,36 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return Nan::ThrowError("Semaphore() expects a boolean as fifth argument");
   if (!info[5]->IsUndefined() && !info[5]->IsUint32())
     return Nan::ThrowError("Semaphore() expects an integer as sixth argument");
-  strict = info[1]->BooleanValue();
-  debug = info[2]->BooleanValue();
-  silent = info[3]->BooleanValue();
-  retry_on_eintr = info[4]->BooleanValue();
-  value = !info[5]->IsUndefined()? info[5]->IntegerValue(): 1;
-  v8::String::Utf8Value str(info[0]->ToString());
-  if (str.length() >= 255 || str.length() <= 0)
+  strict = Nan::To<bool>(info[1]).FromJust();
+  debug = Nan::To<bool>(info[2]).FromJust();
+  silent = Nan::To<bool>(info[3]).FromJust();
+  retry_on_eintr = Nan::To<bool>(info[4]).FromJust();
+  value = !info[5]->IsUndefined()? info[5]->IntegerValue(context).FromJust(): 1;
+  v8::String::Utf8Value v8str(isolate, info[0]);
+  std::string str(*v8str);
+
+  size_t str_len;
+  str_len = str.length();
+  strncpy(buf, str.c_str(), str_len);
+  buf[str_len] = '\0';
+
+  if (str_len >= SEMSIZE - 1 || str_len <= 0)
     return Nan::ThrowError("Semaphore() : first argument's length must be < 255 && > 0");
-  buf = (char*)(*str);
-  Semaphore* obj = new Semaphore(buf, str.length(), strict, debug, silent, retry_on_eintr, value);
+
+  Semaphore* obj = new Semaphore(buf, str_len, strict, debug, silent, retry_on_eintr, value);
   obj->Wrap(info.This());
   info.GetReturnValue().Set(info.This());
 }
 
 void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
-  int        r;
+  int r;
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
 
-  /*if (!obj->strict && (obj->closed || obj->locked))
-  {
-    if (obj->debug)
-      printf("[posix-semaphore] 'acquire' called when semaphore was already acquired or closed, but strict mode deactivated, so not failing\n");
-    return ;
-  }*/
   if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (obj->strict && obj->locked)
     return Nan::ThrowError("trying to acquire semaphore, but already acquired");
-  if (obj->strict && obj->debug) {
-    int sval;
-    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
-    printf("[posix-semaphore] Before sem_wait, value = %d\n", sval);
-  }
   while ((r = sem_wait(obj->semaphore)) == -1 && errno == EINTR && obj->retry_on_eintr)
   {
     if (obj->debug)
@@ -139,59 +130,32 @@ void Semaphore::Acquire(const Nan::FunctionCallbackInfo<v8::Value>& info)
     return ;
   }
   obj->locked = true;
-  if (obj->debug) {
-    int sval;
-    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
-    printf("[posix-semaphore] After sem_wait, value = %d\n", sval);
-  }
 }
 
 void Semaphore::Release(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
-  
-  /*if (!obj->strict && (obj->closed || !obj->locked))
-  {
-    if (obj->debug)
-      printf("[posix-semaphore] 'release' called when semaphore was already released or closed, but strict mode deactivated, so not failing\n");
-    return ;
-  }*/
+
   if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to do operation over semaphore, but already closed");
   if (obj->strict && !obj->locked)
     return Nan::ThrowError("trying to release semaphore, but already released");
-  if (obj->debug) {
-    int sval;
-    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
-    printf("[posix-semaphore] Before sem_post, value = %d\n", sval);
-  }
   if (sem_post(obj->semaphore) == -1)
   {
     if (obj->debug || !obj->silent)
     {
-      printf("[posix-semaphore] sem_post failed, printing errno message ('man sem_post' for more details on possible errors) : \n");
+      printf("[posix-semaphore] sem_post failed, printing errno message ('man sem_post' for more details on possible errors): \n");
       perror("[posix-semaphore] ");
     }
     return Nan::ThrowError("could not release semaphore, sem_post failed");
   }
   obj->locked = false;
-  if (obj->debug) {
-    int sval;
-    if (sem_getvalue(obj->semaphore, &sval)) sval = -1;
-    printf("[posix-semaphore] After sem_post, value = %d\n", sval);
-  }
 }
 
 void Semaphore::Close(const Nan::FunctionCallbackInfo<v8::Value>& info)
 {
   Semaphore* obj = ObjectWrap::Unwrap<Semaphore>(info.Holder());
 
-  /*if (!obj->strict && obj->closed)
-  {
-    if (obj->debug)
-      printf("[posix-semaphore] 'close' called when semaphore was already closed, but strict mode deactivated, so not failing\n");
-    return ;
-  }*/
   if (obj->strict && obj->closed)
     return Nan::ThrowError("trying to close semaphore, but already closed");
   if (obj->debug)

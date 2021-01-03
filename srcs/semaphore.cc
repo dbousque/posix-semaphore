@@ -76,9 +76,9 @@ void Semaphore::New(const Nan::FunctionCallbackInfo<v8::Value>& info)
   if (!info[5]->IsUndefined() && !info[5]->IsUint32())
     return Nan::ThrowError("Semaphore() expects an integer as sixth argument");
   strict = Nan::To<bool>(info[1]).FromJust();
-  debug = Nan::To<bool>(info[1]).FromJust();
-  silent = Nan::To<bool>(info[1]).FromJust();
-  retry_on_eintr = Nan::To<bool>(info[1]).FromJust();
+  debug = Nan::To<bool>(info[2]).FromJust();
+  silent = Nan::To<bool>(info[3]).FromJust();
+  retry_on_eintr = Nan::To<bool>(info[4]).FromJust();
   value = !info[5]->IsUndefined()? info[5]->IntegerValue(context).FromJust(): 1;
   v8::String::Utf8Value v8str(isolate, info[0]);
   std::string str(*v8str);

@@ -1,6 +1,6 @@
 {
   "name": "posix-semaphore",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Blocking POSIX semaphores for Node.js",
   "repository": "https://github.com/dbousque/posix-semaphore",
   "license": "MIT",
@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "child_process": "^1.0.2",
-    "shm-typed-array": "^0.0.10"
+    "shm-typed-array": "^0.1.0"
   },
   "dependencies": {
     "bindings": "~1.2.1",

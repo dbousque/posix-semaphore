@@ -27,7 +27,12 @@ Semaphore::~Semaphore()
 
 void Semaphore::Init(v8::Local<v8::Object> exports)
 {
+#if NODE_MAJOR_VERSION >= 18
+  v8::Local<v8::Context> context = exports->GetCreationContextChecked();
+#else
   v8::Local<v8::Context> context = exports->CreationContext();
+#endif
+
   Nan::HandleScope scope;
 
   // Prepare constructor template
